@@ -2,66 +2,78 @@ package com.example.volleycalling;
 
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.volley.Request;
 import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.JsonArrayRequest;
 import com.android.volley.toolbox.Volley;
 
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String URL = "https://api.github.com/users";
-    private TextView textView;
+    RecyclerView recyclerView;
+    List<User> userList;
+    UserAdapter adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
-        textView = findViewById(R.id.textView);
+        try {
+            recyclerView = findViewById(R.id.recyclerView);
+            recyclerView.setLayoutManager(new LinearLayoutManager(this));
+            userList = new ArrayList<>();
+            adapter = new UserAdapter(this, userList);
+            recyclerView.setAdapter(adapter);
 
-        StringRequest request = new StringRequest(URL, new Response.Listener<String>() {
-            @Override
-            public void onResponse(String response) {
-                try {
-                    JSONArray jsonArray = new JSONArray(response);
-                    StringBuilder builder = new StringBuilder();
-                    for (int i = 0; i < jsonArray.length(); i++) {
-                        JSONObject user = jsonArray.getJSONObject(i);
-                        String login = user.getString("login");
-                        String avatarUrl = user.getString("avatar_url");
+            fetchData();
+        } catch (Exception e) {
+            showError(e);
+        }
+    }
 
-                        String userInfo = "Login: " + login + "\nAvatar: " + avatarUrl + "\n\n";
-                        builder.append(userInfo);
-
-                        // For Logcat (multiple lines)
-                        Log.d("USER", userInfo);
-                    }
-                    textView.setText(builder.toString());
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-            }
-        }, new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                Toast.makeText(MainActivity.this, "Something went wrong", Toast.LENGTH_SHORT).show();
-                Log.e("CODE", "Error: " + error.toString());
-            }
-        });
+    private void fetchData() {
+        String url = "https://api.github.com/users";
 
         RequestQueue queue = Volley.newRequestQueue(this);
+        JsonArrayRequest request = new JsonArrayRequest(Request.Method.GET, url, null,
+                response -> {
+                    try {
+                        parseData(response);
+                    } catch (Exception e) {
+                        showError(e);
+                    }
+                },
+                error -> showError(error)
+        );
+
         queue.add(request);
+    }
+
+    private void parseData(JSONArray response) throws Exception {
+        userList.clear();
+        for (int i = 0; i < response.length(); i++) {
+            JSONObject obj = response.getJSONObject(i);
+            String login = obj.getString("login");
+            String avatarUrl = obj.getString("avatar_url");
+            userList.add(new User(login, avatarUrl));
+        }
+        adapter.notifyDataSetChanged();
+    }
+
+    private void showError(Exception e) {
+        Log.e("VolleyError", "Error: ", e);
+        Toast.makeText(this, e.toString(), Toast.LENGTH_LONG).show();
     }
 }
